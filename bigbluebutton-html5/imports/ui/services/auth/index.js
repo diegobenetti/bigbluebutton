@@ -4,6 +4,7 @@ import { Tracker } from 'meteor/tracker';
 import Storage from '/imports/ui/services/storage/session';
 
 import Users from '/imports/api/users';
+import logger from '/imports/startup/client/logger';
 import { makeCall } from '/imports/ui/services/api';
 
 const CONNECTION_TIMEOUT = Meteor.settings.public.app.connectionTimeout;
@@ -216,7 +217,11 @@ class Auth {
         const User = Users.findOne(selector);
 
         // Skip in case the user is not in the collection yet or is a dummy user
-        if (!User || !('intId' in User)) return;
+        if (!User || !('intId' in User)) {
+          logger.info({ logCode: 'auth_service_resend_validateauthtoken' }, 're-send validateAuthToken for delayed authentication');
+          makeCall('validateAuthToken');
+          return;
+        }
 
         if (User.ejected) {
           reject({
@@ -236,6 +241,18 @@ class Auth {
 
       makeCall('validateAuthToken');
     });
+  }
+
+  authenticateURL(url) {
+    let authURL = url;
+    if (authURL.indexOf('sessionToken=') === -1) {
+      if (authURL.indexOf('?') !== -1) {
+        authURL = authURL + '&sessionToken=' + this.sessionToken;
+      } else {
+        authURL= authURL + '?sessionToken=' + this.sessionToken;
+      }
+    }
+    return authURL;
   }
 }
 

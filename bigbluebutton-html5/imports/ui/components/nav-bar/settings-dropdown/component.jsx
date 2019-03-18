@@ -1,9 +1,10 @@
 import React, { PureComponent } from 'react';
-import { defineMessages, injectIntl } from 'react-intl';
-import cx from 'classnames';
+import { defineMessages, injectIntl, intlShape } from 'react-intl';
 import _ from 'lodash';
+import PropTypes from 'prop-types';
 import { withModalMounter } from '/imports/ui/components/modal/service';
-import LogoutConfirmationContainer from '/imports/ui/components/logout-confirmation/container';
+import EndMeetingConfirmationContainer from '/imports/ui/components/end-meeting-confirmation/container';
+import MeetingEndedComponent from '/imports/ui/components/meeting-ended/component';
 import AboutContainer from '/imports/ui/components/about/container';
 import SettingsMenuContainer from '/imports/ui/components/settings/container';
 import Button from '/imports/ui/components/button/component';
@@ -79,7 +80,32 @@ const intlMessages = defineMessages({
     id: 'app.navBar.settingsDropdown.helpDesc',
     description: 'Describes help option',
   },
+  endMeetingLabel: {
+    id: 'app.navBar.settingsDropdown.endMeetingLabel',
+    description: 'End meeting options label',
+  },
+  endMeetingDesc: {
+    id: 'app.navBar.settingsDropdown.endMeetingDesc',
+    description: 'Describes settings option closing the current meeting',
+  },
 });
+
+const propTypes = {
+  intl: intlShape.isRequired,
+  handleToggleFullscreen: PropTypes.func.isRequired,
+  mountModal: PropTypes.func.isRequired,
+  isFullscreen: PropTypes.bool,
+  noIOSFullscreen: PropTypes.bool,
+  amIModerator: PropTypes.bool,
+  shortcuts: PropTypes.string,
+};
+
+const defaultProps = {
+  isFullscreen: false,
+  noIOSFullscreen: true,
+  amIModerator: false,
+  shortcuts: '',
+};
 
 class SettingsDropdown extends PureComponent {
   constructor(props) {
@@ -91,70 +117,6 @@ class SettingsDropdown extends PureComponent {
 
     this.onActionsShow = this.onActionsShow.bind(this);
     this.onActionsHide = this.onActionsHide.bind(this);
-  }
-
-  componentWillMount() {
-    const { intl, mountModal, isAndroid } = this.props;
-    const { fullscreenLabel, fullscreenDesc, fullscreenIcon } = this.checkFullscreen(this.props);
-    const { showHelpButton: helpButton } = Meteor.settings.public.app;
-
-    this.menuItems = _.compact([(<DropdownListItem
-      key={_.uniqueId('list-item-')}
-      icon={fullscreenIcon}
-      label={fullscreenLabel}
-      description={fullscreenDesc}
-      onClick={this.props.handleToggleFullscreen}
-    />),
-      (<DropdownListItem
-        key={_.uniqueId('list-item-')}
-        icon="settings"
-        label={intl.formatMessage(intlMessages.settingsLabel)}
-        description={intl.formatMessage(intlMessages.settingsDesc)}
-        onClick={() => mountModal(<SettingsMenuContainer />)}
-      />),
-      (<DropdownListItem
-        key={_.uniqueId('list-item-')}
-        icon="about"
-        label={intl.formatMessage(intlMessages.aboutLabel)}
-        description={intl.formatMessage(intlMessages.aboutDesc)}
-        onClick={() => mountModal(<AboutContainer />)}
-      />),
-      !helpButton ? null :
-      (<DropdownListItem
-        key={_.uniqueId('list-item-')}
-        icon="help"
-        label={intl.formatMessage(intlMessages.helpLabel)}
-        description={intl.formatMessage(intlMessages.helpDesc)}
-        onClick={() => window.open('https://bigbluebutton.org/videos/')}
-      />),
-      (<DropdownListItem
-        key={_.uniqueId('list-item-')}
-        icon="shortcuts"
-        label={intl.formatMessage(intlMessages.hotkeysLabel)}
-        description={intl.formatMessage(intlMessages.hotkeysDesc)}
-        onClick={() => mountModal(<ShortcutHelpComponent />)}
-      />),
-      (<DropdownListSeparator key={_.uniqueId('list-separator-')} />),
-      (<DropdownListItem
-        key={_.uniqueId('list-item-')}
-        icon="logout"
-        label={intl.formatMessage(intlMessages.leaveSessionLabel)}
-        description={intl.formatMessage(intlMessages.leaveSessionDesc)}
-        onClick={() => mountModal(<LogoutConfirmationContainer />)}
-      />),
-    ]);
-
-    // Removes fullscreen button if not on Android
-    if (!isAndroid) {
-      this.menuItems.shift();
-    }
-  }
-
-  componentWillReceiveProps(nextProps) {
-    // Alters fullscreen button's label
-    if (this.props.isAndroid) {
-      this.alterMenu(nextProps);
-    }
   }
 
   onActionsShow() {
@@ -169,37 +131,105 @@ class SettingsDropdown extends PureComponent {
     });
   }
 
-  checkFullscreen(nextProps) {
-    const { intl, isFullScreen } = nextProps;
+  getFullscreenItem() {
+    const {
+      intl,
+      isFullscreen,
+      noIOSFullscreen,
+      handleToggleFullscreen,
+    } = this.props;
 
     let fullscreenLabel = intl.formatMessage(intlMessages.fullscreenLabel);
     let fullscreenDesc = intl.formatMessage(intlMessages.fullscreenDesc);
     let fullscreenIcon = 'fullscreen';
 
-    if (isFullScreen) {
+    if (isFullscreen) {
       fullscreenLabel = intl.formatMessage(intlMessages.exitFullscreenLabel);
       fullscreenDesc = intl.formatMessage(intlMessages.exitFullscreenDesc);
       fullscreenIcon = 'exit_fullscreen';
     }
-    return {
-      fullscreenLabel,
-      fullscreenDesc,
-      fullscreenIcon,
-    };
+
+    if (noIOSFullscreen) return null;
+
+    return (
+      <DropdownListItem
+        key="list-item-fullscreen"
+        icon={fullscreenIcon}
+        label={fullscreenLabel}
+        description={fullscreenDesc}
+        onClick={handleToggleFullscreen}
+      />
+    );
   }
 
-  alterMenu(props) {
-    const { fullscreenLabel, fullscreenDesc, fullscreenIcon } = this.checkFullscreen(props);
+  leaveSession() {
+    const { mountModal } = this.props;
 
-    const newFullScreenButton = (<DropdownListItem
-      key={_.uniqueId('list-item-')}
-      icon={fullscreenIcon}
-      label={fullscreenLabel}
-      description={fullscreenDesc}
-      onClick={this.props.handleToggleFullscreen}
-    />);
-    this.menuItems = this.menuItems.slice(1);
-    this.menuItems.unshift(newFullScreenButton);
+    const LOGOUT_CODE = '430';
+    // we don't check askForFeedbackOnLogout here,
+    // it is checked in meeting-ended component
+    mountModal(<MeetingEndedComponent code={LOGOUT_CODE} />);
+  }
+
+  renderMenuItems() {
+    const {
+      intl, mountModal, amIModerator,
+    } = this.props;
+
+    const { showHelpButton: helpButton, helpLink } = Meteor.settings.public.app;
+
+    return _.compact([
+      this.getFullscreenItem(),
+      (<DropdownListItem
+        key="list-item-settings"
+        icon="settings"
+        label={intl.formatMessage(intlMessages.settingsLabel)}
+        description={intl.formatMessage(intlMessages.settingsDesc)}
+        onClick={() => mountModal(<SettingsMenuContainer />)}
+      />),
+      (<DropdownListItem
+        key="list-item-about"
+        icon="about"
+        label={intl.formatMessage(intlMessages.aboutLabel)}
+        description={intl.formatMessage(intlMessages.aboutDesc)}
+        onClick={() => mountModal(<AboutContainer />)}
+      />),
+      !helpButton ? null
+        : (
+          <DropdownListItem
+            key="list-item-help"
+            icon="help"
+            label={intl.formatMessage(intlMessages.helpLabel)}
+            description={intl.formatMessage(intlMessages.helpDesc)}
+            onClick={() => window.open(`${helpLink}`)}
+          />
+        ),
+      (<DropdownListItem
+        key="list-item-shortcuts"
+        icon="shortcuts"
+        label={intl.formatMessage(intlMessages.hotkeysLabel)}
+        description={intl.formatMessage(intlMessages.hotkeysDesc)}
+        onClick={() => mountModal(<ShortcutHelpComponent />)}
+      />),
+      (<DropdownListSeparator key={_.uniqueId('list-separator-')} />),
+      !amIModerator ? null
+        : (
+          <DropdownListItem
+            key="list-item-end-meeting"
+            icon="application"
+            label={intl.formatMessage(intlMessages.endMeetingLabel)}
+            description={intl.formatMessage(intlMessages.endMeetingDesc)}
+            onClick={() => mountModal(<EndMeetingConfirmationContainer />)}
+          />
+        ),
+      (<DropdownListItem
+        key="list-item-logout"
+        icon="logout"
+        label={intl.formatMessage(intlMessages.leaveSessionLabel)}
+        description={intl.formatMessage(intlMessages.leaveSessionDesc)}
+        onClick={() => this.leaveSession()}
+      />),
+    ]);
   }
 
   render() {
@@ -208,10 +238,12 @@ class SettingsDropdown extends PureComponent {
       shortcuts: OPEN_OPTIONS_AK,
     } = this.props;
 
+    const { isSettingOpen } = this.state;
+
     return (
       <Dropdown
         autoFocus
-        isOpen={this.state.isSettingOpen}
+        keepOpen={isSettingOpen}
         onShow={this.onActionsShow}
         onHide={this.onActionsHide}
       >
@@ -222,7 +254,7 @@ class SettingsDropdown extends PureComponent {
             ghost
             circle
             hideLabel
-            className={cx(styles.btn, styles.btnSettings)}
+            className={styles.btn}
 
             // FIXME: Without onClick react proptypes keep warning
             // even after the DropdownTrigger inject an onClick handler
@@ -231,14 +263,13 @@ class SettingsDropdown extends PureComponent {
         </DropdownTrigger>
         <DropdownContent placement="bottom right">
           <DropdownList>
-            {
-              this.menuItems
-            }
+            {this.renderMenuItems()}
           </DropdownList>
         </DropdownContent>
       </Dropdown>
     );
   }
 }
-
+SettingsDropdown.propTypes = propTypes;
+SettingsDropdown.defaultProps = defaultProps;
 export default withShortcutHelper(withModalMounter(injectIntl(SettingsDropdown)), 'openOptions');

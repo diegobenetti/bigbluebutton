@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { PureComponent } from 'react';
 import { defineMessages, injectIntl } from 'react-intl';
 import { withTracker } from 'meteor/react-meteor-data';
 import { Session } from 'meteor/session';
@@ -29,11 +29,12 @@ const intlMessages = defineMessages({
   },
 });
 
-class ChatContainer extends Component {
+class ChatContainer extends PureComponent {
   componentDidMount() {
     // in case of reopening a chat, need to make sure it's removed from closed list
     ChatService.removeFromClosedChatsSession();
   }
+
   render() {
     return (
       <Chat {...this.props}>
@@ -58,7 +59,7 @@ export default injectIntl(withTracker(({ intl }) => {
 
     messages = ChatService.getPublicGroupMessages();
 
-    const time = user.logTime;
+    const time = user.loginTime;
     const welcomeId = `welcome-msg-${time}`;
 
     const welcomeMsg = {
@@ -95,15 +96,12 @@ export default injectIntl(withTracker(({ intl }) => {
 
     const hasClearMessage = clearMessage.length;
 
-    const showWelcomeMsg =
-      (hasClearMessage && clearMessage[0].timestamp < time) || !hasClearMessage;
-
     const showModeratorMsg =
       (user.isModerator)
       && ((hasClearMessage && clearMessage[0].timestamp < moderatorTime) || !hasClearMessage);
 
     const messagesFormated = messagesBeforeWelcomeMsg
-      .concat(showWelcomeMsg ? welcomeMsg : [])
+      .concat(welcomeMsg)
       .concat(showModeratorMsg ? moderatorMsg : [])
       .concat(messagesAfterWelcomeMsg);
 
@@ -155,7 +153,7 @@ export default injectIntl(withTracker(({ intl }) => {
   const lastReadMessageTime = ChatService.lastReadMessageTime(chatID);
 
   return {
-    chatID: Session.get('idChatOpen'),
+    chatID,
     chatName,
     title,
     messages,
@@ -166,6 +164,7 @@ export default injectIntl(withTracker(({ intl }) => {
     scrollPosition,
     minMessageLength: CHAT_CONFIG.min_message_length,
     maxMessageLength: CHAT_CONFIG.max_message_length,
+    UnsentMessagesCollection: ChatService.UnsentMessagesCollection,
     actions: {
       handleClosePrivateChat: chatId => ChatService.closePrivateChat(chatId),
 

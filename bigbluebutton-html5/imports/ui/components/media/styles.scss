@@ -35,7 +35,12 @@
 }
 
 .hideOverlay {
-  display: none;
+  visibility: hidden;
+  position: absolute;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  height: 1px; width: 1px;
+  margin: -1px; padding: 0; border: 0;
 }
 
 .floatingOverlay {
@@ -45,7 +50,7 @@
   --overlay-ratio: calc(16 / 9);
 
   @include mq($medium-up) {
-    z-index: 1;
+    z-index: 999;
     position: fixed;
     margin: 0;
     bottom: .8rem;

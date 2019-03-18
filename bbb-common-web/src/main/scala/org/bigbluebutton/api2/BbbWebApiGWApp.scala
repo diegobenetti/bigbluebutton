@@ -9,6 +9,7 @@ import org.bigbluebutton.api2.endpoint.redis.{ WebRedisSubscriberActor }
 import org.bigbluebutton.common2.redis.MessageSender
 import org.bigbluebutton.api2.meeting.{ OldMeetingMsgHdlrActor, RegisterUser }
 import org.bigbluebutton.common2.domain._
+import org.bigbluebutton.common2.util.JsonUtil
 import org.bigbluebutton.presentation.messages._
 import scala.concurrent.duration._
 import org.bigbluebutton.common2.redis._
@@ -90,7 +91,8 @@ class BbbWebApiGWApp(
                     userInactivityInspectTimerInMinutes:    java.lang.Integer,
                     userInactivityThresholdInMinutes:       java.lang.Integer,
                     userActivitySignResponseDelayInMinutes: java.lang.Integer,
-                    muteOnStart:                            java.lang.Boolean): Unit = {
+                    muteOnStart:                            java.lang.Boolean,
+                    keepEvents:                             java.lang.Boolean): Unit = {
 
     val meetingProp = MeetingProp(name = meetingName, extId = extMeetingId, intId = meetingId,
       isBreakout = isBreakout.booleanValue())
@@ -107,7 +109,7 @@ class BbbWebApiGWApp(
 
     val password = PasswordProp(moderatorPass = moderatorPass, viewerPass = viewerPass)
     val recordProp = RecordProp(record = recorded.booleanValue(), autoStartRecording = autoStartRecording.booleanValue(),
-      allowStartStopRecording = allowStartStopRecording.booleanValue())
+      allowStartStopRecording = allowStartStopRecording.booleanValue(), keepEvents = keepEvents.booleanValue())
     val breakoutProps = BreakoutProps(parentId = parentMeetingId, sequence = sequence.intValue(), freeJoin = freeJoin.booleanValue(), breakoutRooms = Vector())
     val welcomeProp = WelcomeProp(welcomeMsgTemplate = welcomeMsgTemplate, welcomeMsg = welcomeMsg,
       modOnlyMessage = modOnlyMessage)
@@ -165,19 +167,24 @@ class BbbWebApiGWApp(
   def sendKeepAlive(system: String, timestamp: java.lang.Long): Unit = {
     val event = MsgBuilder.buildCheckAlivePingSysMsg(system, timestamp.longValue())
     msgToAkkaAppsEventBus.publish(MsgToAkkaApps(toAkkaAppsChannel, event))
-
   }
 
-  def publishRecording(msg: PublishRecordingMessage): Unit = {
-
+  def publishedRecording(msg: PublishedRecordingMessage): Unit = {
+    val event = MsgBuilder.buildPublishedRecordingSysMsg(msg)
+    // Probably violating something here, but a new event bus looks just too much for this
+    msgSender.send(fromBbbWebRedisChannel, JsonUtil.toJson(event))
   }
 
-  def unpublishRecording(msg: UnpublishRecordingMessage): Unit = {
-
+  def unpublishedRecording(msg: UnpublishedRecordingMessage): Unit = {
+    val event = MsgBuilder.buildUnpublishedRecordingSysMsg(msg)
+    // Probably violating something here, but a new event bus looks just too much for this
+    msgSender.send(fromBbbWebRedisChannel, JsonUtil.toJson(event))
   }
 
-  def deleteRecording(msg: DeleteRecordingMessage): Unit = {
-
+  def deletedRecording(msg: DeletedRecordingMessage): Unit = {
+    val event = MsgBuilder.buildDeletedRecordingSysMsg(msg)
+    // Probably violating something here, but a new event bus looks just too much for this
+    msgSender.send(fromBbbWebRedisChannel, JsonUtil.toJson(event))
   }
 
   def sendDocConversionMsg(msg: IDocConversionMsg): Unit = {

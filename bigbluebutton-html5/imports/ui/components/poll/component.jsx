@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { defineMessages, injectIntl } from 'react-intl';
+import PresentationUploaderContainer from '/imports/ui/components/presentation/presentation-uploader/container';
+import { withModalMounter } from '/imports/ui/components/modal/service';
 import _ from 'lodash';
 import { Session } from 'meteor/session';
 import Button from '/imports/ui/components/button/component';
@@ -40,9 +42,21 @@ const intlMessages = defineMessages({
     id: 'app.poll.activePollInstruction',
     description: 'instructions displayed when a poll is active',
   },
+  ariaInputCount: {
+    id: 'app.poll.ariaInputCount',
+    description: 'aria label for custom poll input field',
+  },
   customPlaceholder: {
     id: 'app.poll.customPlaceholder',
     description: 'custom poll input field placeholder text',
+  },
+  noPresentationSelected: {
+    id: 'app.poll.noPresentationSelected',
+    description: 'no presentation label',
+  },
+  clickHereToSelect: {
+    id: 'app.poll.clickHereToSelect',
+    description: 'open uploader modal button label',
   },
   tf: {
     id: 'app.poll.tf',
@@ -92,6 +106,16 @@ class Poll extends Component {
     this.handleBackClick = this.handleBackClick.bind(this);
   }
 
+  componentDidUpdate() {
+    const { currentUser } = this.props;
+
+    if (!currentUser.presenter) {
+      Session.set('openPanel', 'userlist');
+      Session.set('forcePollOpen', false);
+    }
+  }
+
+
   handleInputChange(index, event) {
     // This regex will replace any instance of 2 or more consecutive white spaces
     // with a single white space character.
@@ -100,21 +124,15 @@ class Poll extends Component {
     this.setState({ customPollValues: this.inputEditor });
   }
 
-  renderInputFields() {
-    const { intl } = this.props;
-    const items = [];
+  handleBackClick() {
+    const { stopPoll } = this.props;
 
-    items = _.range(1, MAX_CUSTOM_FIELDS + 1).map((ele, index) => (
-      <input
-        key={`custom-poll-${index}`}
-        placeholder={intl.formatMessage(intlMessages.customPlaceholder)}
-        className={styles.input}
-        onChange={event => this.handleInputChange(index, event)}
-        defaultValue={this.state.customPollValues[index]}
-      />
-    ));
-
-    return items;
+    stopPoll();
+    this.inputEditor = [];
+    this.setState({
+      isPolling: false,
+      customPollValues: this.inputEditor,
+    }, document.activeElement.blur());
   }
 
   toggleCustomFields() {
@@ -133,7 +151,8 @@ class Poll extends Component {
 
       const label = intl.formatMessage(
         // regex removes the - to match the message id
-        intlMessages[type.replace(/-/g, '').toLowerCase()]);
+        intlMessages[type.replace(/-/g, '').toLowerCase()],
+      );
 
       return (
         <Button
@@ -142,8 +161,8 @@ class Poll extends Component {
           className={styles.pollBtn}
           key={_.uniqueId('quick-poll-')}
           onClick={() => {
-          this.setState({ isPolling: true }, () => startPoll(type));
-        }}
+            this.setState({ isPolling: true }, () => startPoll(type));
+          }}
         />);
     });
 
@@ -172,15 +191,29 @@ class Poll extends Component {
     );
   }
 
-  handleBackClick() {
-    const { stopPoll } = this.props;
+  renderInputFields() {
+    const { intl } = this.props;
+    const { customPollValues } = this.state;
+    let items = [];
 
-    stopPoll();
-    this.inputEditor = [];
-    this.setState({
-      isPolling: false,
-      customPollValues: this.inputEditor,
-    }, document.activeElement.blur());
+    items = _.range(1, MAX_CUSTOM_FIELDS + 1).map((ele, index) => {
+      const id = index;
+      return (
+        <div key={`custom-poll-${id}`} className={styles.pollInput}>
+          <input
+            aria-label={intl.formatMessage(
+              intlMessages.ariaInputCount, { 0: id + 1, 1: MAX_CUSTOM_FIELDS },
+            )}
+            placeholder={intl.formatMessage(intlMessages.customPlaceholder)}
+            className={styles.input}
+            onChange={event => this.handleInputChange(id, event)}
+            defaultValue={customPollValues[id]}
+          />
+        </div>
+      );
+    });
+
+    return items;
   }
 
   renderActivePollOptions() {
@@ -227,16 +260,53 @@ class Poll extends Component {
           color="default"
           onClick={this.toggleCustomFields}
           label={intl.formatMessage(intlMessages.customPollLabel)}
+          aria-expanded={customPollReq}
         />
         {!customPollReq ? null : this.renderCustomView()}
       </div>
     );
   }
 
+  renderNoSlidePanel = () => {
+    const { mountModal, intl } = this.props;
+    return (
+      <div className={styles.noSlidePanelContainer}>
+        <h4>{intl.formatMessage(intlMessages.noPresentationSelected)}</h4>
+        <Button
+          label={intl.formatMessage(intlMessages.clickHereToSelect)}
+          color="primary"
+          onClick={() => mountModal(<PresentationUploaderContainer />)}
+          className={styles.pollBtn}
+        />
+      </div>
+    );
+  }
+
+  renderPollPanel = () => {
+    const { isPolling } = this.state;
+    const {
+      currentPoll,
+      currentSlide,
+    } = this.props;
+
+    if (!currentSlide) return this.renderNoSlidePanel();
+
+    if (isPolling || (!isPolling && currentPoll)) {
+      return this.renderActivePollOptions();
+    }
+
+    return this.renderPollOptions();
+  }
+
   render() {
     const {
-      intl, stopPoll, currentPoll,
+      intl,
+      stopPoll,
+      currentPoll,
+      currentUser,
     } = this.props;
+
+    if (!currentUser.presenter) return null;
 
     return (
       <div>
@@ -248,22 +318,19 @@ class Poll extends Component {
             aria-label={intl.formatMessage(intlMessages.hidePollDesc)}
             className={styles.hideBtn}
             onClick={() => {
-              Session.set('isPollOpen', false);
-              Session.set('forcePollOpen', true);
-              Session.set('isUserListOpen', true);
+              Session.set('openPanel', 'userlist');
             }}
           />
 
           <Button
             label={intl.formatMessage(intlMessages.closeLabel)}
             onClick={() => {
-            if (currentPoll) {
-              stopPoll();
-            }
-            Session.set('isPollOpen', false);
-            Session.set('forcePollOpen', false);
-            Session.set('isUserListOpen', true);
-          }}
+              if (currentPoll) {
+                stopPoll();
+              }
+              Session.set('openPanel', 'userlist');
+              Session.set('forcePollOpen', false);
+            }}
             className={styles.closeBtn}
             icon="close"
             size="sm"
@@ -272,15 +339,14 @@ class Poll extends Component {
 
         </header>
         {
-          this.state.isPolling || !this.state.isPolling && currentPoll
-          ? this.renderActivePollOptions() : this.renderPollOptions()
+          this.renderPollPanel()
         }
       </div>
     );
   }
 }
 
-export default injectIntl(Poll);
+export default withModalMounter(injectIntl(Poll));
 
 Poll.propTypes = {
   intl: PropTypes.shape({

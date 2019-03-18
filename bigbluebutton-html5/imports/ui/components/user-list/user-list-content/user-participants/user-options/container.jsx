@@ -1,10 +1,8 @@
-import React, { PureComponent } from 'react';
+import { withTracker } from 'meteor/react-meteor-data';
 import PropTypes from 'prop-types';
 import Auth from '/imports/ui/services/auth';
-import mapUser from '/imports/ui/services/user/mapUser';
-import Users from '/imports/api/users/';
+import Service from '/imports/ui/components/actions-bar/service';
 import UserOptions from './component';
-
 
 const propTypes = {
   users: PropTypes.arrayOf(Object).isRequired,
@@ -12,64 +10,38 @@ const propTypes = {
   muteAllExceptPresenter: PropTypes.func.isRequired,
   setEmojiStatus: PropTypes.func.isRequired,
   meeting: PropTypes.shape({}).isRequired,
+  currentUser: PropTypes.shape({
+    isModerator: PropTypes.bool.isRequired,
+  }).isRequired,
 };
 
-export default class UserOptionsContainer extends PureComponent {
-  constructor(props) {
-    super(props);
+const UserOptionsContainer = withTracker((props) => {
+  const {
+    meeting,
+    users,
+    setEmojiStatus,
+    muteAllExceptPresenter,
+    muteAllUsers,
+  } = props;
 
-    const { meeting } = this.props;
-
-    this.state = {
-      meetingMuted: meeting.voiceProp.muteOnStart,
-    };
-
-    this.muteMeeting = this.muteMeeting.bind(this);
-    this.muteAllUsersExceptPresenter = this.muteAllUsersExceptPresenter.bind(this);
-    this.handleClearStatus = this.handleClearStatus.bind(this);
-  }
-
-  muteMeeting() {
-    const { muteAllUsers } = this.props;
-    const currentUser = Users.findOne({ userId: Auth.userID });
-
-    muteAllUsers(currentUser.userId);
-  }
-
-  muteAllUsersExceptPresenter() {
-    const { muteAllExceptPresenter } = this.props;
-    const currentUser = Users.findOne({ userId: Auth.userID });
-
-    muteAllExceptPresenter(currentUser.userId);
-  }
-
-  handleClearStatus() {
-    const { users, setEmojiStatus } = this.props;
-
-    users.forEach((user) => {
-      if (user.emoji.status !== 'none') {
-        setEmojiStatus(user.id, 'none');
-      }
-    });
-  }
-
-  render() {
-    const currentUser = Users.findOne({ userId: Auth.userID });
-    const currentUserIsModerator = mapUser(currentUser).isModerator;
-    const { meeting } = this.props;
-
-    this.state.meetingMuted = meeting.voiceProp.muteOnStart;
-
-    return (
-      currentUserIsModerator ?
-        <UserOptions
-          toggleMuteAllUsers={this.muteMeeting}
-          toggleMuteAllUsersExceptPresenter={this.muteAllUsersExceptPresenter}
-          toggleStatus={this.handleClearStatus}
-          isMeetingMuted={this.state.meetingMuted}
-        /> : null
-    );
-  }
-}
+  return {
+    toggleMuteAllUsers: () => muteAllUsers(Auth.userID),
+    toggleMuteAllUsersExceptPresenter: () => muteAllExceptPresenter(Auth.userID),
+    toggleStatus: () => users.forEach(id => setEmojiStatus(id, 'none')),
+    isMeetingMuted: meeting.voiceProp.muteOnStart,
+    isUserPresenter: Service.isUserPresenter(),
+    isUserModerator: Service.isUserModerator(),
+    createBreakoutRoom: Service.createBreakoutRoom,
+    meetingIsBreakout: Service.meetingIsBreakout(),
+    hasBreakoutRoom: Service.hasBreakoutRoom(),
+    meetingName: Service.meetingName(),
+    users: Service.users(),
+    getBreakouts: Service.getBreakouts,
+    sendInvitation: Service.sendInvitation,
+    getUsersNotAssigned: Service.getUsersNotAssigned,
+  };
+})(UserOptions);
 
 UserOptionsContainer.propTypes = propTypes;
+
+export default UserOptionsContainer;

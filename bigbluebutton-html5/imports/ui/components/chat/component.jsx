@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import PropTypes from 'prop-types';
 import { defineMessages, injectIntl } from 'react-intl';
 import injectWbResizeEvent from '/imports/ui/components/presentation/resize-wrapper/component';
@@ -39,6 +39,7 @@ const Chat = (props) => {
     actions,
     intl,
     shortcuts,
+    UnsentMessagesCollection,
   } = props;
 
   const HIDE_CHAT_AK = shortcuts.hidePrivateChat;
@@ -56,7 +57,8 @@ const Chat = (props) => {
         >
           <Button
             onClick={() => {
-              Session.set('isChatOpen', false);
+              Session.set('idChatOpen', '');
+              Session.set('openPanel', 'userlist');
             }}
             aria-label={intl.formatMessage(intlMessages.hideChatLabel, { 0: title })}
             accessKey={HIDE_CHAT_AK}
@@ -66,23 +68,24 @@ const Chat = (props) => {
           />
         </div>
         {
-          chatID !== 'public' ?
-            <Button
-              className={styles.closeBtn}
-              icon="close"
-              size="md"
-              hideLabel
-              onClick={() => {
-                actions.handleClosePrivateChat(chatID);
-                Session.set('isChatOpen', false);
-                Session.set('idChatOpen', '');
-              }}
-              aria-label={intl.formatMessage(intlMessages.closeChatLabel, { 0: title })}
-              label={intl.formatMessage(intlMessages.closeChatLabel, { 0: title })}
-              accessKey={CLOSE_CHAT_AK}
-            />
-            :
-            <ChatDropdown />
+          chatID !== 'public'
+            ? (
+              <Button
+                className={styles.closeBtn}
+                icon="close"
+                size="md"
+                hideLabel
+                onClick={() => {
+                  actions.handleClosePrivateChat(chatID);
+                  Session.set('idChatOpen', '');
+                  Session.set('openPanel', 'userlist');
+                }}
+                aria-label={intl.formatMessage(intlMessages.closeChatLabel, { 0: title })}
+                label={intl.formatMessage(intlMessages.closeChatLabel, { 0: title })}
+                accessKey={CLOSE_CHAT_AK}
+              />
+            )
+            : <ChatDropdown />
         }
       </header>
       <MessageList
@@ -97,6 +100,8 @@ const Chat = (props) => {
         partnerIsLoggedOut={partnerIsLoggedOut}
       />
       <MessageForm
+        UnsentMessagesCollection={UnsentMessagesCollection}
+        chatId={chatID}
         disabled={isChatLocked}
         chatAreaId={ELEMENT_ID}
         chatTitle={title}
@@ -109,7 +114,7 @@ const Chat = (props) => {
   );
 };
 
-export default withShortcutHelper(injectWbResizeEvent(injectIntl(Chat)), ['hidePrivateChat', 'closePrivateChat']);
+export default withShortcutHelper(injectWbResizeEvent(injectIntl(memo(Chat))), ['hidePrivateChat', 'closePrivateChat']);
 
 const propTypes = {
   chatID: PropTypes.string.isRequired,
@@ -122,6 +127,7 @@ const propTypes = {
     PropTypes.object,
   ])).isRequired).isRequired,
   scrollPosition: PropTypes.number,
+  shortcuts: PropTypes.objectOf(PropTypes.string),
   hasUnreadMessages: PropTypes.bool.isRequired,
   lastReadMessageTime: PropTypes.number.isRequired,
   partnerIsLoggedOut: PropTypes.bool.isRequired,

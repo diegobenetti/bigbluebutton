@@ -31,7 +31,7 @@
 
       &:hover,
       &:focus {
-        background-color: var(--color-gray-light);
+        background-color: transparentize(#8B9AA8, .85);
       }
 
       th,
@@ -60,7 +60,7 @@
 
 .tableItemActions {
   min-width: 68px; // size of the 2 icons (check/trash)
-  text-align: right;
+  text-align: left;
 }
 
 .tableItemIcon > i {
@@ -120,10 +120,20 @@
 	transparent
   );
   background-size: 1rem 1rem;
-  animation: bar-stripes 1s linear infinite;
+
+  [style~="--enableAnimation:1;"] & {
+    animation: bar-stripes 1s linear infinite;
+  }
 }
 
 .itemAction {
+  div > i {
+    margin-top: .25rem;
+  }
+}
+
+.itemAction,
+.itemAction > i {
   display: inline-block;
   border: none;
   background: transparent;
@@ -131,13 +141,24 @@
   font-size: 1.35rem;
   color: var(--color-gray-light);
   padding: 0;
-  transition: all .25s;
+
+  [style~="--enableAnimation:1;"] & {
+    transition: all .25s;
+  }
+
+  :hover, :focus {
+    padding: unset !important;
+  }
 }
 
 .itemActionRemove {
-  &:focus,
-  &:hover {
-    color: var(--color-danger);
+  background-color: transparent;
+  border: 0 !important;
+
+  & > i:focus,
+  & > i:hover {
+    color: var(--color-danger) !important;
+    background-color: transparent;
   }
 
   &[aria-disabled="true"] {
@@ -145,17 +166,24 @@
     opacity: .5;
     box-shadow: none;
     pointer-events: none;
-    cursor: not-allowed;
   }
 }
 
-.dropzone {
+.checked > i {
+  color: var(--color-success);
+}
+
+.dropzoneWrapper {
   width: 100%;
-  display: block;
+  display: flex;
+  margin-top: calc(var(--lg-padding-y) * 5);
+}
+
+.dropzone {
+  flex: auto;
   border: 2px dashed;
   border-radius: var(--border-radius);
-  padding: calc(var(--lg-padding-y) * 2.5) calc(var(--lg-padding-x) * 2.5);
-  margin-top: calc(var(--lg-padding-y) * 5);
+  padding: calc(var(--lg-padding-y) * 2.5) var(--lg-padding-x);
   text-align: center;
   font-size: var(--font-size-large);
   cursor: pointer;

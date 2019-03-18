@@ -3,8 +3,11 @@ import cx from 'classnames';
 import { styles } from './styles.scss';
 import DesktopShare from './desktop-share/component';
 import ActionsDropdown from './actions-dropdown/component';
+import QuickPollDropdown from './quick-poll-dropdown/component';
 import AudioControlsContainer from '../audio/audio-controls/container';
-import JoinVideoOptionsContainer from '../video-provider/video-menu/container';
+import JoinVideoOptionsContainer from '../video-provider/video-button/container';
+
+import PresentationOptionsContainer from './presentation-options/component';
 
 class ActionsBar extends React.PureComponent {
   render() {
@@ -18,13 +21,23 @@ class ActionsBar extends React.PureComponent {
       isUserModerator,
       recordSettingsList,
       toggleRecording,
-      togglePollMenu,
       screenSharingCheck,
       enableVideo,
       createBreakoutRoom,
       meetingIsBreakout,
       hasBreakoutRoom,
       meetingName,
+      users,
+      isLayoutSwapped,
+      toggleSwapLayout,
+      getUsersNotAssigned,
+      sendInvitation,
+      getBreakouts,
+      handleTakePresenter,
+      intl,
+      currentSlidHasContent,
+      parseCurrentSlideContent,
+      isSharingVideo,
     } = this.props;
 
     const {
@@ -34,6 +47,8 @@ class ActionsBar extends React.PureComponent {
     } = recordSettingsList;
 
     const actionBarClasses = {};
+    const { enableExternalVideo } = Meteor.settings.public.app;
+
     actionBarClasses[styles.centerWithActions] = isUserPresenter;
     actionBarClasses[styles.center] = true;
 
@@ -44,33 +59,64 @@ class ActionsBar extends React.PureComponent {
             isUserPresenter,
             isUserModerator,
             allowStartStopRecording,
+            allowExternalVideo: enableExternalVideo,
             isRecording,
             record,
             toggleRecording,
-            togglePollMenu,
             createBreakoutRoom,
             meetingIsBreakout,
             hasBreakoutRoom,
             meetingName,
+            users,
+            getUsersNotAssigned,
+            sendInvitation,
+            getBreakouts,
+            handleTakePresenter,
+            intl,
+            isSharingVideo,
+          }}
+          />
+          <QuickPollDropdown
+            {...{
+              currentSlidHasContent,
+              intl,
+              isUserPresenter,
+              parseCurrentSlideContent,
+            }}
+          />
+        </div>
+        <div
+          className={
+            isUserPresenter ? cx(styles.centerWithActions, actionBarClasses) : styles.center
+          }
+        >
+          <AudioControlsContainer />
+          {enableVideo
+            ? (
+              <JoinVideoOptionsContainer
+                handleJoinVideo={handleJoinVideo}
+                handleCloseVideo={handleExitVideo}
+              />
+            )
+            : null}
+          <DesktopShare {...{
+            handleShareScreen,
+            handleUnshareScreen,
+            isVideoBroadcasting,
+            isUserPresenter,
+            screenSharingCheck,
           }}
           />
         </div>
-        <div className={isUserPresenter ? cx(styles.centerWithActions, actionBarClasses) : styles.center}>
-          <AudioControlsContainer />
-          {enableVideo ?
-            <JoinVideoOptionsContainer
-              handleJoinVideo={handleJoinVideo}
-              handleCloseVideo={handleExitVideo}
-            />
-            : null}
-          <DesktopShare {...{
-              handleShareScreen,
-              handleUnshareScreen,
-              isVideoBroadcasting,
-              isUserPresenter,
-              screenSharingCheck,
-            }}
-          />
+        <div className={styles.right}>
+          {isLayoutSwapped
+            ? (
+              <PresentationOptionsContainer
+                toggleSwapLayout={toggleSwapLayout}
+              />
+            )
+            : null
+          }
         </div>
       </div>
     );

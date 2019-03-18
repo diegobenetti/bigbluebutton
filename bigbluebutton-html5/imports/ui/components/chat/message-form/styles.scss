@@ -22,12 +22,15 @@
   flex-grow: 0;
   flex-shrink: 0;
   border: var(--border-size) solid var(--color-gray-lighter);
-  background: #fff;
+  background-color: #fff;
   border-radius: var(--border-radius) 0 0 var(--border-radius);
   color: var(--color-gray-light);
   padding: var(--sm-padding-y) var(--sm-padding-x);
-  transition: background .3s;
   cursor: pointer;
+
+  [style~="--enableAnimation:1;"] & {
+    transition: all .3s;
+  }
 
   --bg-faded: rgba(167,179,189,0.25);
 
@@ -62,7 +65,7 @@
   min-height: 2.5rem;
   max-height: 10rem;
   border: 1px solid var(--color-gray-lighter);
-  box-shadow: 0 0 0 2px var(--color-gray-lighter);
+  box-shadow: 0 0 0 1px var(--color-gray-lighter);
 
   &:disabled,
   &[disabled] {
@@ -78,6 +81,7 @@
   font-size: 0.9rem;
   i {
     font-size: 115% !important;
+    line-height: 115%;
   }
 }
 

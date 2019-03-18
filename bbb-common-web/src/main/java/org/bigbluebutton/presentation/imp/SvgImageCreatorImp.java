@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
@@ -62,7 +63,7 @@ public class SvgImageCreatorImp implements SvgImageCreator {
             dest = imagePresentationDir.getAbsolutePath() + File.separator + "slide1.pdf";
 
             NuProcessBuilder convertImgToSvg = new NuProcessBuilder(
-                    Arrays.asList("timeout", convTimeout, "convert", source, dest));
+                    Arrays.asList("timeout", convTimeout, "convert", source, "-auto-orient", dest));
 
             Png2SvgConversionHandler pHandler = new Png2SvgConversionHandler();
             convertImgToSvg.setProcessListener(pHandler);
@@ -121,14 +122,15 @@ public class SvgImageCreatorImp implements SvgImageCreator {
                 logData.put("fileExists", destsvg.exists());
                 logData.put("numberOfImages", pHandler.numberOfImageTags());
                 logData.put("numberOfPaths", pHandler.numberOfPaths());
+                logData.put("logCode", "potential_problem_with_svg");
                 logData.put("message", "Potential problem with generated SVG");
                 Gson gson = new Gson();
                 String logStr = gson.toJson(logData);
 
-                log.warn("-- analytics -- {}", logStr);
+                log.warn(" --analytics-- data={}", logStr);
 
                 File tempPng = null;
-                String basePresentationame = FilenameUtils.getBaseName(pres.getName());
+                String basePresentationame = UUID.randomUUID().toString();
                 try {
                     tempPng = File.createTempFile(basePresentationame + "-" + i, ".png");
                 } catch (IOException ioException) {
@@ -138,10 +140,11 @@ public class SvgImageCreatorImp implements SvgImageCreator {
                     logData.put("meetingId", pres.getMeetingId());
                     logData.put("presId", pres.getId());
                     logData.put("filename", pres.getName());
+                    logData.put("logCode", "problem_with_creating_svg");
                     logData.put("message", "Unable to create temporary files");
                     gson = new Gson();
                     logStr = gson.toJson(logData);
-                    log.error("-- analytics -- {}", logStr, ioException);
+                    log.error(" --analytics-- data={}", logStr, ioException);
                 }
 
                 // Step 1: Convert a PDF page to PNG using a raw pdftocairo
@@ -203,11 +206,12 @@ public class SvgImageCreatorImp implements SvgImageCreator {
         logData.put("meetingId", pres.getMeetingId());
         logData.put("presId", pres.getId());
         logData.put("filename", pres.getName());
+        logData.put("logCode", "create_svg_images_failed");
         logData.put("message", "Failed to create svg images.");
 
         Gson gson = new Gson();
         String logStr = gson.toJson(logData);
-        log.warn("-- analytics -- {}", logStr);
+        log.warn(" --analytics-- data={}", logStr);
 
         return false;
     }

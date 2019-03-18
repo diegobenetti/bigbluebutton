@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { PureComponent } from 'react';
 import { defineMessages, injectIntl } from 'react-intl';
 import { withModalMounter } from '/imports/ui/components/modal/service';
 import Clipboard from 'clipboard';
@@ -11,7 +11,7 @@ import DropdownListItem from '/imports/ui/components/dropdown/list/item/componen
 import Auth from '/imports/ui/services/auth';
 import Button from '/imports/ui/components/button/component';
 
-import ChatService from './../service';
+import ChatService from '../service';
 import { styles } from './styles';
 
 const intlMessages = defineMessages({
@@ -33,7 +33,7 @@ const intlMessages = defineMessages({
   },
 });
 
-class ChatDropdown extends Component {
+class ChatDropdown extends PureComponent {
   constructor(props) {
     super(props);
 
@@ -76,7 +76,7 @@ class ChatDropdown extends Component {
     const { intl } = this.props;
 
     const clearIcon = 'delete';
-    const saveIcon = 'save_notes';
+    const saveIcon = 'download';
     const copyIcon = 'copy';
 
     const user = ChatService.getUser(Auth.userID);
@@ -97,7 +97,7 @@ class ChatDropdown extends Component {
             `data: ${mimeType} ;charset=utf-8,
             ${encodeURIComponent(ChatService.exportChat(ChatService.getPublicGroupMessages()))}`,
           );
-          link.click();
+          link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
         }}
       />,
       <DropdownListItem

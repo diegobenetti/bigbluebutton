@@ -126,6 +126,23 @@ public class RecordingService {
         }
     }
 
+    public void markAsEnded(String meetingId) {
+        String done = recordStatusDir + "/../ended/" + meetingId + ".done";
+
+        File doneFile = new File(done);
+        if (!doneFile.exists()) {
+            try {
+                doneFile.createNewFile();
+                if (!doneFile.exists())
+                    log.error("Failed to create " + done + " file.");
+            } catch (IOException e) {
+                log.error("Exception occured when trying to create {} file.", done);
+            }
+        } else {
+            log.error(done + " file already exists.");
+        }
+    }
+
     public List<RecordingMetadata> getRecordingsMetadata(List<String> recordIDs, List<String> states) {
         List<RecordingMetadata> recs = new ArrayList<>();
 
@@ -398,46 +415,52 @@ public class RecordingService {
         return r;
     }
 
-    public void changeState(String recordingId, String state) {
+    public boolean changeState(String recordingId, String state) {
+        boolean succeeded = false;
         if (state.equals(Recording.STATE_PUBLISHED)) {
             // It can only be published if it is unpublished
-            changeState(unpublishedDir, recordingId, state);
+            succeeded |= changeState(unpublishedDir, recordingId, state);
         } else if (state.equals(Recording.STATE_UNPUBLISHED)) {
             // It can only be unpublished if it is published
-            changeState(publishedDir, recordingId, state);
+            succeeded |= changeState(publishedDir, recordingId, state);
         } else if (state.equals(Recording.STATE_DELETED)) {
             // It can be deleted from any state
-            changeState(publishedDir, recordingId, state);
-            changeState(unpublishedDir, recordingId, state);
+            succeeded |= changeState(publishedDir, recordingId, state);
+            succeeded |= changeState(unpublishedDir, recordingId, state);
         }
+        return succeeded;
     }
 
-    private void changeState(String path, String recordingId, String state) {
+    private boolean changeState(String path, String recordingId, String state) {
+        boolean exists = false;
+        boolean succeeded = true;
         String[] format = getPlaybackFormats(path);
          for (String aFormat : format) {
             List<File> recordings = getDirectories(path + File.separatorChar + aFormat);
             for (File recording : recordings) {
                 if (recording.getName().equalsIgnoreCase(recordingId)) {
+                    exists = true;
                     File dest;
                     if (state.equals(Recording.STATE_PUBLISHED)) {
                        dest = new File(publishedDir + File.separatorChar + aFormat);
-                       publishRecording(dest, recordingId, recording, aFormat);
+                       succeeded &= publishRecording(dest, recordingId, recording, aFormat);
                     } else if (state.equals(Recording.STATE_UNPUBLISHED)) {
                        dest = new File(unpublishedDir + File.separatorChar + aFormat);
-                       unpublishRecording(dest, recordingId, recording, aFormat);
+                       succeeded &= unpublishRecording(dest, recordingId, recording, aFormat);
                     } else if (state.equals(Recording.STATE_DELETED)) {
                        dest = new File(deletedDir + File.separatorChar + aFormat);
-                       deleteRecording(dest, recordingId, recording, aFormat);
+                       succeeded &= deleteRecording(dest, recordingId, recording, aFormat);
                     } else {
                        log.debug(String.format("State: %s, is not supported", state));
-                       return;
+                       return false;
                     }
                 }
             }
         }
+        return exists && succeeded;
     }
 
-    public void publishRecording(File destDir, String recordingId, File recordingDir, String format) {
+    public boolean publishRecording(File destDir, String recordingId, File recordingDir, String format) {
         File metadataXml = recordingServiceHelper.getMetadataXmlLocation(recordingDir.getPath());
         RecordingMetadata r = recordingServiceHelper.getRecordingMetadata(metadataXml);
         if (r != null) {
@@ -453,14 +476,15 @@ public class RecordingService {
                   destDir.getAbsolutePath() + File.separatorChar + recordingId);
 
                 // Process the changes by saving the recording into metadata.xml
-                recordingServiceHelper.saveRecordingMetadata(medataXmlFile, r);
+                return recordingServiceHelper.saveRecordingMetadata(medataXmlFile, r);
             } catch (IOException e) {
               log.error("Failed to publish recording : " + recordingId, e);
             }
         }
+        return false;
     }
 
-    public void unpublishRecording(File destDir, String recordingId, File recordingDir, String format) {
+    public boolean unpublishRecording(File destDir, String recordingId, File recordingDir, String format) {
         File metadataXml = recordingServiceHelper.getMetadataXmlLocation(recordingDir.getPath());
 
         RecordingMetadata r = recordingServiceHelper.getRecordingMetadata(metadataXml);
@@ -476,14 +500,15 @@ public class RecordingService {
                   destDir.getAbsolutePath() + File.separatorChar + recordingId);
 
                 // Process the changes by saving the recording into metadata.xml
-                recordingServiceHelper.saveRecordingMetadata(medataXmlFile, r);
+                return recordingServiceHelper.saveRecordingMetadata(medataXmlFile, r);
             } catch (IOException e) {
               log.error("Failed to unpublish recording : " + recordingId, e);
             }
         }
+        return false;
     }
 
-    public void deleteRecording(File destDir, String recordingId, File recordingDir, String format) {
+    public boolean deleteRecording(File destDir, String recordingId, File recordingDir, String format) {
         File metadataXml = recordingServiceHelper.getMetadataXmlLocation(recordingDir.getPath());
 
         RecordingMetadata r = recordingServiceHelper.getRecordingMetadata(metadataXml);
@@ -499,11 +524,12 @@ public class RecordingService {
                   destDir.getAbsolutePath() + File.separatorChar + recordingId);
 
                 // Process the changes by saving the recording into metadata.xml
-                recordingServiceHelper.saveRecordingMetadata(medataXmlFile, r);
+                return recordingServiceHelper.saveRecordingMetadata(medataXmlFile, r);
             } catch (IOException e) {
               log.error("Failed to delete recording : " + recordingId, e);
             }
         }
+        return false;
     }
 
 

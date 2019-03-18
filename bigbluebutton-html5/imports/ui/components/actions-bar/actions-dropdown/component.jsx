@@ -1,6 +1,7 @@
+import _ from 'lodash';
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { defineMessages, injectIntl, intlShape } from 'react-intl';
+import { defineMessages, intlShape } from 'react-intl';
 import Button from '/imports/ui/components/button/component';
 import Dropdown from '/imports/ui/components/dropdown/component';
 import DropdownTrigger from '/imports/ui/components/dropdown/trigger/component';
@@ -9,16 +10,24 @@ import DropdownList from '/imports/ui/components/dropdown/list/component';
 import DropdownListItem from '/imports/ui/components/dropdown/list/item/component';
 import PresentationUploaderContainer from '/imports/ui/components/presentation/presentation-uploader/container';
 import { withModalMounter } from '/imports/ui/components/modal/service';
-import getFromUserSettings from '/imports/ui/services/users-settings';
 import withShortcutHelper from '/imports/ui/components/shortcut-help/service';
 import BreakoutRoom from '../create-breakout-room/component';
 import { styles } from '../styles';
-import ActionBarService from '../service';
+
+import ExternalVideoModal from '/imports/ui/components/external-video-player/modal/container';
 
 const propTypes = {
   isUserPresenter: PropTypes.bool.isRequired,
   intl: intlShape.isRequired,
   mountModal: PropTypes.func.isRequired,
+  isUserModerator: PropTypes.bool.isRequired,
+  meetingIsBreakout: PropTypes.bool.isRequired,
+  hasBreakoutRoom: PropTypes.bool.isRequired,
+  createBreakoutRoom: PropTypes.func.isRequired,
+  meetingName: PropTypes.string.isRequired,
+  shortcuts: PropTypes.string.isRequired,
+  users: PropTypes.arrayOf(PropTypes.object).isRequired,
+  handleTakePresenter: PropTypes.func.isRequired,
 };
 
 const intlMessages = defineMessages({
@@ -50,14 +59,6 @@ const intlMessages = defineMessages({
     id: 'app.actionsBar.actionsDropdown.stopDesktopShareDesc',
     description: 'adds context to stop desktop share option',
   },
-  startRecording: {
-    id: 'app.actionsBar.actionsDropdown.startRecording',
-    description: 'start recording option',
-  },
-  stopRecording: {
-    id: 'app.actionsBar.actionsDropdown.stopRecording',
-    description: 'stop recording option',
-  },
   pollBtnLabel: {
     id: 'app.actionsBar.actionsDropdown.pollBtnLabel',
     description: 'poll menu toggle button label',
@@ -74,6 +75,26 @@ const intlMessages = defineMessages({
     id: 'app.actionsBar.actionsDropdown.createBreakoutRoomDesc',
     description: 'Description of create breakout room option',
   },
+  invitationItem: {
+    id: 'app.invitation.title',
+    description: 'invitation to breakout title',
+  },
+  takePresenter: {
+    id: 'app.actionsBar.actionsDropdown.takePresenter',
+    description: 'Label for take presenter role option',
+  },
+  takePresenterDesc: {
+    id: 'app.actionsBar.actionsDropdown.takePresenterDesc',
+    description: 'Description of take presenter role option',
+  },
+  startExternalVideoLabel: {
+    id: 'app.actionsBar.actionsDropdown.shareExternalVideo',
+    description: 'Start sharing external video button',
+  },
+  stopExternalVideoLabel: {
+    id: 'app.actionsBar.actionsDropdown.stopShareExternalVideo',
+    description: 'Stop sharing external video button',
+  },
 });
 
 class ActionsDropdown extends Component {
@@ -81,21 +102,17 @@ class ActionsDropdown extends Component {
     super(props);
     this.handlePresentationClick = this.handlePresentationClick.bind(this);
     this.handleCreateBreakoutRoomClick = this.handleCreateBreakoutRoomClick.bind(this);
-  }
+    this.onCreateBreakouts = this.onCreateBreakouts.bind(this);
+    this.onInvitationUsers = this.onInvitationUsers.bind(this);
 
-  componentWillMount() {
     this.presentationItemId = _.uniqueId('action-item-');
     this.recordId = _.uniqueId('action-item-');
     this.pollId = _.uniqueId('action-item-');
     this.createBreakoutRoomId = _.uniqueId('action-item-');
-  }
+    this.takePresenterId = _.uniqueId('action-item-');
 
-  componentDidMount() {
-    if (Meteor.settings.public.allowOutsideCommands.toggleRecording ||
-      getFromUserSettings('outsideToggleRecording', false)) {
-      ActionBarService.connectRecordingObserver();
-      window.addEventListener('message', ActionBarService.processOutsideToggleRecording);
-    }
+    this.handlePresentationClick = this.handlePresentationClick.bind(this);
+    this.handleCreateBreakoutRoomClick = this.handleCreateBreakoutRoomClick.bind(this);
   }
 
   componentWillUpdate(nextProps) {
@@ -106,73 +123,157 @@ class ActionsDropdown extends Component {
     }
   }
 
+  onCreateBreakouts() {
+    return this.handleCreateBreakoutRoomClick(false);
+  }
+
+  onInvitationUsers() {
+    return this.handleCreateBreakoutRoomClick(true);
+  }
+
   getAvailableActions() {
     const {
       intl,
       isUserPresenter,
       isUserModerator,
-      allowStartStopRecording,
-      isRecording,
-      record,
-      toggleRecording,
-      togglePollMenu,
+      allowExternalVideo,
       meetingIsBreakout,
       hasBreakoutRoom,
+      getUsersNotAssigned,
+      users,
+      handleTakePresenter,
+      isSharingVideo,
     } = this.props;
 
+    const {
+      pollBtnLabel,
+      pollBtnDesc,
+      presentationLabel,
+      presentationDesc,
+      createBreakoutRoom,
+      createBreakoutRoomDesc,
+      invitationItem,
+      takePresenter,
+      takePresenterDesc,
+    } = intlMessages;
+
+    const {
+      formatMessage,
+    } = intl;
+
+    const canCreateBreakout = isUserModerator
+    && !meetingIsBreakout
+    && !hasBreakoutRoom;
+
+    const canInviteUsers = isUserModerator
+    && !meetingIsBreakout
+    && hasBreakoutRoom
+    && getUsersNotAssigned(users).length;
+
     return _.compact([
-      (isUserPresenter ?
-        <DropdownListItem
-          icon="user"
-          label={intl.formatMessage(intlMessages.pollBtnLabel)}
-          description={intl.formatMessage(intlMessages.pollBtnDesc)}
-          key={this.pollId}
-          onClick={() => togglePollMenu()}
-        />
+      (isUserPresenter
+        ? (
+          <DropdownListItem
+            icon="user"
+            label={formatMessage(pollBtnLabel)}
+            description={formatMessage(pollBtnDesc)}
+            key={this.pollId}
+            onClick={() => {
+              Session.set('openPanel', 'poll');
+              Session.set('forcePollOpen', true);
+            }}
+          />
+        )
+        : (
+          <DropdownListItem
+            icon="presentation"
+            label={formatMessage(takePresenter)}
+            description={formatMessage(takePresenterDesc)}
+            key={this.takePresenterId}
+            onClick={() => handleTakePresenter()}
+          />
+        )),
+      (isUserPresenter
+        ? (
+          <DropdownListItem
+            data-test="uploadPresentation"
+            icon="presentation"
+            label={formatMessage(presentationLabel)}
+            description={formatMessage(presentationDesc)}
+            key={this.presentationItemId}
+            onClick={this.handlePresentationClick}
+          />
+        )
         : null),
-      (isUserPresenter ?
-        <DropdownListItem
-          data-test="uploadPresentation"
-          icon="presentation"
-          label={intl.formatMessage(intlMessages.presentationLabel)}
-          description={intl.formatMessage(intlMessages.presentationDesc)}
-          key={this.presentationItemId}
-          onClick={this.handlePresentationClick}
-        />
+      (isUserPresenter && allowExternalVideo
+        ? (
+          <DropdownListItem
+            icon="video"
+            label={!isSharingVideo ? intl.formatMessage(intlMessages.startExternalVideoLabel)
+              : intl.formatMessage(intlMessages.stopExternalVideoLabel) }
+            description="External Video"
+            key="external-video"
+            onClick={this.handleExternalVideoClick}
+          />
+        )
         : null),
-      (record && isUserModerator && allowStartStopRecording ?
-        <DropdownListItem
-          icon="record"
-          label={intl.formatMessage(isRecording ?
-            intlMessages.stopRecording : intlMessages.startRecording)}
-          description={intl.formatMessage(isRecording ?
-            intlMessages.stopRecording : intlMessages.startRecording)}
-          key={this.recordId}
-          onClick={toggleRecording}
-        />
+      (canCreateBreakout
+        ? (
+          <DropdownListItem
+            icon="rooms"
+            label={formatMessage(createBreakoutRoom)}
+            description={formatMessage(createBreakoutRoomDesc)}
+            key={this.createBreakoutRoomId}
+            onClick={this.onCreateBreakouts}
+          />
+        )
         : null),
-      (isUserModerator && !meetingIsBreakout && !hasBreakoutRoom ?
-        <DropdownListItem
-          icon="rooms"
-          label={intl.formatMessage(intlMessages.createBreakoutRoom)}
-          description={intl.formatMessage(intlMessages.createBreakoutRoomDesc)}
-          key={this.createBreakoutRoomId}
-          onClick={this.handleCreateBreakoutRoomClick}
-        />
+      (canInviteUsers
+        ? (
+          <DropdownListItem
+            icon="rooms"
+            label={formatMessage(invitationItem)}
+            key={this.createBreakoutRoomId}
+            onClick={this.onInvitationUsers}
+          />
+        )
         : null),
     ]);
   }
 
-  handlePresentationClick() {
-    this.props.mountModal(<PresentationUploaderContainer />);
+  handleExternalVideoClick = () => {
+    this.props.mountModal(<ExternalVideoModal />);
   }
-  handleCreateBreakoutRoomClick() {
+
+  handlePresentationClick() {
+    const { mountModal } = this.props;
+    mountModal(<PresentationUploaderContainer />);
+  }
+
+  handleCreateBreakoutRoomClick(isInvitation) {
     const {
       createBreakoutRoom,
       mountModal,
       meetingName,
+      users,
+      getUsersNotAssigned,
+      getBreakouts,
+      sendInvitation,
     } = this.props;
-    mountModal(<BreakoutRoom createBreakoutRoom={createBreakoutRoom} meetingName={meetingName} />);
+
+    mountModal(
+      <BreakoutRoom
+        {...{
+          createBreakoutRoom,
+          meetingName,
+          users,
+          getUsersNotAssigned,
+          isInvitation,
+          getBreakouts,
+          sendInvitation,
+        }}
+      />,
+    );
   }
 
   render() {
@@ -188,7 +289,7 @@ class ActionsDropdown extends Component {
     if ((!isUserPresenter && !isUserModerator) || availableActions.length === 0) return null;
 
     return (
-      <Dropdown ref={(ref) => { this._dropdown = ref; }} >
+      <Dropdown ref={(ref) => { this._dropdown = ref; }}>
         <DropdownTrigger tabIndex={0} accessKey={OPEN_ACTIONS_AK}>
           <Button
             hideLabel
@@ -214,4 +315,4 @@ class ActionsDropdown extends Component {
 
 ActionsDropdown.propTypes = propTypes;
 
-export default withShortcutHelper(withModalMounter(injectIntl(ActionsDropdown)), 'openActions');
+export default withShortcutHelper(withModalMounter(ActionsDropdown), 'openActions');

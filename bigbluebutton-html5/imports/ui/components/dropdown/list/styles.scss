@@ -81,10 +81,10 @@
     color: var(--color-white);
 
     .verticalList & {
-      margin-left: calc((var(--line-height-computed) / 2) * -1);
-      margin-right: calc((var(--line-height-computed) / 2) * -1);
-      padding-left: calc(var(--line-height-computed) / 2);
-      padding-right: calc(var(--line-height-computed) / 2);
+      margin-left: -.25rem;
+      margin-right: -.25rem;
+      padding-left: .25rem;
+      padding-right: .25rem;
     }
 
     .horizontalList & {
@@ -127,8 +127,8 @@
 }
 
 .iconRight {
-  margin-right: calc(var(--indicator-padding-left) * -1);
-  margin-left: var(--sm-padding-x);
+  margin-right: 0;
+  margin-left: 1rem;
   font-size: 12px;
   line-height: 16px;
 }

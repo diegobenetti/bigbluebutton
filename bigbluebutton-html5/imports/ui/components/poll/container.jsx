@@ -1,30 +1,20 @@
 import React from 'react';
 import { makeCall } from '/imports/ui/services/api';
 import { withTracker } from 'meteor/react-meteor-data';
-import Users from '/imports/api/users';
 import Auth from '/imports/ui/services/auth';
 import Presentations from '/imports/api/presentations';
 import PresentationAreaService from '/imports/ui/components/presentation/service';
 import Poll from './component';
 import Service from './service';
 
-const PollContainer = ({ ...props }) => {
-  const currentUser = Users.findOne({ userId: Auth.userID });
-  if (currentUser.presenter) {
-    return (<Poll {...props} />);
-  }
-  Session.set('isPollOpen', false);
-  Session.set('forcePollOpen', false);
-  Session.set('isUserListOpen', true);
-  return null;
-};
+const PollContainer = ({ ...props }) => <Poll {...props} />;
 
-export default withTracker(({ }) => {
+export default withTracker(() => {
   Meteor.subscribe('current-poll', Auth.meetingID);
 
   const currentPresentation = Presentations.findOne({
     current: true,
-  });
+  }) || {};
 
   const currentSlide = PresentationAreaService.getCurrentSlide(currentPresentation.podId);
 
