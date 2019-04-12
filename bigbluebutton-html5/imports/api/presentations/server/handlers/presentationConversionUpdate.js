@@ -20,9 +20,12 @@ const GENERATED_SLIDE_KEY = 'GENERATED_SLIDE';
 
 export default function handlePresentationConversionUpdate({ body }, meetingId) {
   check(body, Object);
-
   const {
-    presentationId, podId, messageKey: status, presName: presentationName,
+    presentationId,
+    podId,
+    messageKey: status,
+    presName: presentationName,
+    maxNumberPages,
   } = body;
 
   check(meetingId, String);
@@ -46,12 +49,16 @@ export default function handlePresentationConversionUpdate({ body }, meetingId) 
     case OFFICE_DOC_CONVERSION_FAILED_KEY:
     case OFFICE_DOC_CONVERSION_INVALID_KEY:
     case PAGE_COUNT_FAILED_KEY:
-    case PAGE_COUNT_EXCEEDED_KEY:
       statusModifier.id = presentationId;
       statusModifier.name = presentationName;
       statusModifier['conversion.error'] = true;
       break;
-
+    case PAGE_COUNT_EXCEEDED_KEY:
+      statusModifier.id = presentationId;
+      statusModifier.name = presentationName;
+      statusModifier['conversion.error'] = true;
+      statusModifier.maxNumberPages = maxNumberPages;
+      break;
     case GENERATED_SLIDE_KEY:
       statusModifier['conversion.pagesCompleted'] = body.pagesCompleted;
       statusModifier['conversion.numPages'] = body.numberOfPages;
@@ -83,6 +90,5 @@ export default function handlePresentationConversionUpdate({ body }, meetingId) 
 
     return Logger.debug(`Upserted presentation conversion status=${status} id=${presentationId} meeting=${meetingId}`);
   };
-
   return Presentations.upsert(selector, modifier, cb);
 }

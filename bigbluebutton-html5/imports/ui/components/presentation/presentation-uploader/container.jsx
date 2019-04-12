@@ -11,8 +11,12 @@ const PresentationUploaderContainer = props => (
 export default withTracker(() => {
   const PRESENTATION_CONFIG = Meteor.settings.public.presentation;
   const currentPresentations = Service.getPresentations();
-  const { dispatchDisableDownloadable, dispatchEnableDownloadable, dispatchTogglePresentationDownloadable } = Service;
-
+  const {
+    dispatchDisableDownloadable,
+    dispatchEnableDownloadable,
+    dispatchTogglePresentationDownloadable,
+    getMaxNumberPages,
+  } = Service;
   return {
     presentations: currentPresentations,
     defaultFileName: PRESENTATION_CONFIG.defaultPresentationFile,
@@ -28,5 +32,6 @@ export default withTracker(() => {
     dispatchDisableDownloadable,
     dispatchEnableDownloadable,
     dispatchTogglePresentationDownloadable,
+    getMaxNumberPages: getMaxNumberPages(),
   };
 })(PresentationUploaderContainer);

@@ -215,8 +215,12 @@ const persistPresentationChanges = (oldState, newState, uploadEndpoint, podId) =
     .then(removePresentations.bind(null, presentationsToRemove, podId));
 };
 
+
+const getMaxNumberPages = () => Presentations.findOne({ maxNumberPages: { $exists: true } });
+
 export default {
   getPresentations,
   persistPresentationChanges,
   dispatchTogglePresentationDownloadable,
+  getMaxNumberPages,
 };

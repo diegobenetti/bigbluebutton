@@ -156,7 +156,6 @@ class PresentationUploader extends Component {
     super(props);
 
     const currentPres = props.presentations.find(p => p.isCurrent);
-
     this.state = {
       presentations: props.presentations,
       oldCurrentId: currentPres ? currentPres.id : -1,
@@ -232,7 +231,6 @@ class PresentationUploader extends Component {
     const { presentations, oldCurrentId } = this.state;
     const presentationsToSave = presentations
       .filter(p => !p.upload.error && !p.conversion.error);
-
     this.setState({
       disableActions: true,
       preventClosing: true,
@@ -442,7 +440,10 @@ class PresentationUploader extends Component {
   }
 
   renderPresentationItemStatus(item) {
-    const { intl } = this.props;
+    const {
+      intl,
+      getMaxNumberPages,
+    } = this.props;
     if (!item.upload.done && item.upload.progress === 0) {
       return intl.formatMessage(intlMessages.fileToUpload);
     }
@@ -452,14 +453,17 @@ class PresentationUploader extends Component {
         0: Math.floor(item.upload.progress).toString(),
       });
     }
-
     if (item.upload.done && item.upload.error) {
       const errorMessage = intlMessages[item.upload.status] || intlMessages.genericError;
       return intl.formatMessage(errorMessage);
     }
-
     if (!item.conversion.done && item.conversion.error) {
       const errorMessage = intlMessages[item.conversion.status] || intlMessages.genericError;
+      if (item.conversion.status === 'PAGE_COUNT_EXCEEDED') {
+        if (getMaxNumberPages) {
+          return intl.formatMessage(errorMessage, { 0: getMaxNumberPages.maxNumberPages });
+        }
+      }
       return intl.formatMessage(errorMessage);
     }
 
